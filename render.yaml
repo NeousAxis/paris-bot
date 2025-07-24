@@ -2,8 +2,13 @@ services:
   - type: web
     name: paris-bot
     env: python
-    region: frankfurt # Or your preferred region
+    region: frankfurt
     plan: free
+    envVars:
+      - key: PYTHONUNBUFFERED
+        value: "1"
+      - key: PLAYWRIGHT_BROWSERS_PATH
+        value: "0"
     buildCommand: "./render-build.sh"
-    startCommand: "gunicorn server:app"
+    startCommand: "gunicorn --log-level=info --access-logfile=- --error-logfile=- server:app"
     healthCheckPath: /
