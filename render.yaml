@@ -1,0 +1,9 @@
+services:
+  - type: web
+    name: paris-bot
+    env: python
+    region: frankfurt # Or your preferred region
+    plan: free
+    buildCommand: "./render-build.sh"
+    startCommand: "gunicorn server:app"
+    healthCheckPath: /
