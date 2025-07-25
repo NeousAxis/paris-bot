@@ -4,9 +4,6 @@ services:
     env: python
     region: frankfurt
     plan: starter
-    buildpacks:
-      - url: https://github.com/heroku/heroku-buildpack-apt.git
-      - url: https://github.com/heroku/heroku-buildpack-google-chrome.git
     buildCommand: pip install -r requirements.txt
     startCommand: gunicorn server:app
     healthCheckPath: "/"
