@@ -12,10 +12,7 @@ RUN apt-get update && \
     apt-get install -y google-chrome-stable && \
     # Installer ChromeDriver qui correspond à la version de Chrome
     CHROME_VER=$(google-chrome --version | awk '{print $3}') && \
-    wget -q "https://chromedriver.storage.googleapis.com/${CHROME_VER}/chromedriver_linux64.zip" -O /tmp/chromedriver.zip && \
-    unzip /tmp/chromedriver.zip -d /usr/local/bin && \
-    chmod +x /usr/local/bin/chromedriver && \
-    rm -rf /var/lib/apt/lists/* /tmp/*
+    echo "Chrome version detected: ${CHROME_VER}"    echo "ChromeDriver version to download: ${CHROME_VER}"    wget -q "https://chromedriver.storage.googleapis.com/${CHROME_VER}/chromedriver_linux64.zip" -O /tmp/chromedriver.zip &&     unzip /tmp/chromedriver.zip -d /usr/local/bin &&     chmod +x /usr/local/bin/chromedriver &&     echo "ChromeDriver installed at: $(which chromedriver)" &&     ls -l /usr/local/bin/chromedriver &&     rm -rf /var/lib/apt/lists/* /tmp/*
 
 # Étape 2 : installer vos dépendances Python
 WORKDIR /app
