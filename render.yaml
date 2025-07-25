@@ -1,15 +1,6 @@
 services:
   - type: web
     name: paris-bot
-    env: python
+    env: docker
     region: frankfurt
-    plan: free
-    envVars:
-      - key: PYTHONUNBUFFERED
-        value: "1"
-    buildCommand: "./render-build.sh"
-    startCommand: "gunicorn --log-level=info --access-logfile=- --error-logfile=- server:app"
-    healthCheckPath: /
-    buildpacks:
-      - url: https://github.com/heroku/heroku-buildpack-apt
-      - url: https://github.com/heroku/heroku-buildpack-google-chrome
+    plan: starter
