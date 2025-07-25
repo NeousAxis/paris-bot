@@ -7,8 +7,9 @@ services:
     envVars:
       - key: PYTHONUNBUFFERED
         value: "1"
-      - key: PLAYWRIGHT_BROWSERS_PATH
-        value: "0"
     buildCommand: "./render-build.sh"
     startCommand: "gunicorn --log-level=info --access-logfile=- --error-logfile=- server:app"
     healthCheckPath: /
+    buildpacks:
+      - url: https://github.com/heroku/heroku-buildpack-apt
+      - url: https://github.com/heroku/heroku-buildpack-google-chrome
