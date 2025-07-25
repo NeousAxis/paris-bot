@@ -1,6 +1,12 @@
 services:
   - type: web
     name: paris-bot
-    env: docker
+    env: python
     region: frankfurt
     plan: starter
+    buildpacks:
+      - https://github.com/heroku/heroku-buildpack-apt.git
+      - https://github.com/heroku/heroku-buildpack-google-chrome.git
+    buildCommand: pip install -r requirements.txt
+    startCommand: gunicorn server:app
+    healthCheckPath: "/"
