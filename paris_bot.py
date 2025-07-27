@@ -1,79 +1,141 @@
-import random
-import time
-import logging
 from selenium import webdriver
 from selenium.webdriver.chrome.options import Options
 from selenium.webdriver.common.by import By
 from selenium.webdriver.support.ui import WebDriverWait
 from selenium.webdriver.support import expected_conditions as EC
+import requests
+import time
+import os
+from dotenv import load_dotenv
 
-def run_bot():
-    logging.info("Bot starting...")
+load_dotenv()
+
+# Configuration 2Captcha\API
+API_KEY = os.getenv("TWOCAPTCHA_API_KEY")
+
+# Initialisation du navigateur
+options = Options()
+options.add_argument("--headless=new")
+options.add_argument("--disable-blink-features=AutomationControlled")
+options.add_argument("--no-sandbox")
+options.add_argument("--disable-dev-shm-usage")
+options.add_argument("--disable-gpu")
+
+driver = webdriver.Chrome(options=options)
+wait = WebDriverWait(driver, 30)
+
+# Résolution de reCAPTCHA via 2Captcha
+def solve_recaptcha(site_key, page_url):
+    resp = requests.get(
+        "http://2captcha.com/in.php", params={
+            'key': API_KEY,
+            'method': 'userrecaptcha',
+            'googlekey': site_key,
+            'pageurl': page_url,
+            'json': 1
+        }
+    ).json()
+    captcha_id = resp.get('request')
+
+    for _ in range(30):
+        time.sleep(5)
+        result = requests.get(
+            "http://2captcha.com/res.php", params={
+                'key': API_KEY,
+                'action': 'get',
+                'id': captcha_id,
+                'json': 1
+            }
+        ).json()
+        if result.get('status') == 1:
+            return result.get('request')
+    raise Exception("Timeout solving reCAPTCHA")
+
+# Résolution de Turnstile Cloudflare via 2Captcha
+def solve_turnstile(site_key, page_url):
+    resp = requests.get(
+        "http://2captcha.com/in.php", params={
+            'key': API_KEY,
+            'method': 'turnstile',
+            'sitekey': site_key,
+            'pageurl': page_url,
+            'json': 1
+        }
+    ).json()
+    captcha_id = resp.get('request')
+
+    for _ in range(30):
+        time.sleep(5)
+        result = requests.get(
+            "http://2captcha.com/res.php", params={
+                'key': API_KEY,
+                'action': 'get',
+                'id': captcha_id,
+                'json': 1
+            }
+        ).json()
+        if result.get('status') == 1:
+            return result.get('request')
+    raise Exception("Timeout solving Turnstile")
+
+# Handler ShrinkEarn
+def handle_shrinkearn():
+    url = "https://tpi.li/Balade_Monmartre"
+    driver.get(url)
     try:
-        chrome_options = Options()
-        chrome_options.add_argument("--headless")
-        chrome_options.add_argument("--no-sandbox")
-        chrome_options.add_argument("--disable-dev-shm-usage")
-        
-        # Initialize the WebDriver
-        driver = webdriver.Chrome(options=chrome_options)
-        driver.set_page_load_timeout(30) # Set a timeout for page loads
-
-        logging.info("Navigating to https://neousaxis.github.io/Paris-Vibes/")
-        driver.get("https://neousaxis.github.io/Paris-Vibes/")
-        time.sleep(3) # Initial wait as requested
-
-        # Simulate a random scroll
-        scroll_height = driver.execute_script("return document.body.scrollHeight")
-        random_scroll_position = random.randint(0, scroll_height)
-        driver.execute_script(f"window.scrollTo(0, {random_scroll_position})")
-        logging.info(f"Scrolled to position: {random_scroll_position}")
-        time.sleep(2) # Pause after scrolling
-
-        # Iterate over all a.shortlink, click + close tab
-        shortlinks = driver.find_elements(By.CSS_SELECTOR, "a.shortlink")
-        if shortlinks:
-            logging.info(f"Found {len(shortlinks)} shortlinks. Clicking them one by one...")
-            main_window = driver.current_window_handle
-            for link in shortlinks:
-                try:
-                    link.click()
-                    # Wait for new tab to open and switch to it
-                    WebDriverWait(driver, 10).until(EC.number_of_windows_to_be(2))
-                    new_window = [window for window in driver.window_handles if window != main_window][0]
-                    driver.switch_to.window(new_window)
-                    logging.info(f"Clicked shortlink: {link.get_attribute('href')}. Switched to new tab.")
-                    time.sleep(5) # Wait for content to load in new tab
-                    driver.close() # Close the new tab
-                    driver.switch_to.window(main_window) # Switch back to main tab
-                    logging.info("Closed new tab and switched back to main window.")
-                except Exception as click_e:
-                    logging.warning(f"Could not click or process shortlink {link.get_attribute('href')}: {click_e}")
-        else:
-            logging.info("No shortlinks found.")
-
-        # Switch iframe #faucetFrame + click bouton claim
-        try:
-            logging.info("Attempting to switch to iframe #faucetFrame...")
-            WebDriverWait(driver, 10).until(EC.frame_to_be_available_and_switch_to_it((By.ID, "faucetFrame")))
-            logging.info("Switched to iframe. Looking for claim button...")
-            # Assuming the claim button has a specific ID or class within the iframe
-            # You might need to inspect the iframe content to find the correct selector
-            claim_button = WebDriverWait(driver, 10).until(EC.element_to_be_clickable((By.XPATH, "//button[contains(text(), 'Claim')] | //input[@value='Claim']")))
-            claim_button.click()
-            logging.info("Claim button clicked in iframe.")
-            time.sleep(5) # Wait after clicking claim
-            driver.switch_to.default_content() # Switch back to main content
-            logging.info("Switched back to default content.")
-        except Exception as iframe_e:
-            logging.warning(f"Could not interact with iframe or claim button: {iframe_e}")
-
+        sitekey = driver.find_element(By.CSS_SELECTOR, 'div.g-recaptcha').get_attribute('data-sitekey')
+        token = solve_recaptcha(sitekey, url)
+        driver.execute_script("document.getElementById('g-recaptcha-response').innerHTML = arguments[0];", token)
+        driver.execute_script("___grecaptcha_cfg.clients[0].Z.Z.callback(arguments[0]);", token)
+        skip_btn = wait.until(EC.element_to_be_clickable((By.LINK_TEXT, "Skip Ad")))
+        skip_btn.click()
+        wait.until(EC.url_changes(url))
+        print("✅ ShrinkEarn redirigé vers :", driver.current_url)
     except Exception as e:
-        logging.error(f"An error occurred during bot execution: {e}", exc_info=True)
-    finally:
-        if 'driver' in locals() and driver:
-            driver.quit()
-            logging.info("Browser quit. Bot finished.")
+        print("❌ ShrinkEarn erreur :", e)
 
-if __name__ == "__main__":
-    run_bot()
+# Handler OUO
+def handle_ouo():
+    url = "https://ouo.io/rZMB9W"
+    driver.get(url)
+    try:
+        time.sleep(3)
+        sitekey = driver.find_element(By.CSS_SELECTOR, 'div.cf-turnstile').get_attribute('data-sitekey')
+        token = solve_turnstile(sitekey, url)
+        driver.execute_script("document.querySelector('textarea[name=\"cf-turnstile-response\"]').innerHTML = arguments[0];", token)
+        iframes = driver.find_elements(By.TAG_NAME, "iframe")
+        for iframe in iframes:
+            try:
+                driver.switch_to.frame(iframe)
+                btn = wait.until(EC.element_to_be_clickable((By.CSS_SELECTOR, "#btn-main")))
+                btn.click()
+                driver.switch_to.default_content()
+                wait.until(EC.url_changes(url))
+                print("✅ OUO redirigé vers :", driver.current_url)
+                return
+            except:
+                driver.switch_to.default_content()
+                continue
+        print("❌ OUO: bouton introuvable après injection Turnstile.")
+    except Exception as e:
+        print("❌ OUO erreur :", e)
+
+# Handler AdFoc
+def handle_adfoc():
+    url = "http://adfoc.us/8733161"
+    driver.get(url)
+    try:
+        time.sleep(15)
+        print("✅ AdFoc.us visité :", driver.current_url)
+    except Exception as e:
+        print("❌ AdFoc erreur :", e)
+
+# Exécution
+def main():
+    handle_shrinkearn()
+    handle_ouo()
+    handle_adfoc()
+    driver.quit()
+
+if __name__ == '__main__':
+    main()
